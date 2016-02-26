@@ -1,0 +1,3 @@
+[B][COLOR green]V 1.0.0 (Friday 26 February 2016)[/COLOR][/B]
+-- [COLOR yellow][B]Initial Release[/COLOR][/B]
+
