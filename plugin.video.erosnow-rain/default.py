@@ -1,4 +1,8 @@
-import requests, json, re, os
+# -*- coding: utf-8 -*-
+# ErosNow.com video addon
+#
+
+import requests, json, re, os, random
 import xbmc
 import xbmcplugin
 import xbmcgui
@@ -6,9 +10,6 @@ import xbmcaddon
 import urllib
 import urllib2
 from addon.common.addon import Addon
-# from bs4 import BeautifulSoup, SoupStrainer
-# import cssutils
-# import pycaption
 
 addon_id = 'plugin.video.erosnow-rain'
 addon = Addon(addon_id, sys.argv)
@@ -58,11 +59,17 @@ def make_request(url):
 def make_request_post(url):
 	username = (Addon.getSetting('username'))
 	password = (Addon.getSetting('password'))
+	# ipaddressUK="31.7."
+	# for x in xrange(1,2):
+		# ipaddressUK += ".".join(map(str,(random.randint(0,255) for _ in range(2))))
+	
 	if (username != '' and password != ''):
 		body = {'el':username, 'pw':password, 'mobile':'', 'callingcode':'', 'type':'json', 'fbid':''}
 		body = urllib.urlencode(body)
 		try:
 			s.headers['Referer']='http://erosnow.com'
+			# s.headers['X-Forwarded-For']=ipaddressUK
+			s.headers['Content-Type']= 'application/x-www-form-urlencoded; charset=UTF-8'
 			response = s.post(url, headers=headers, data=body, cookies=s.cookies, verify=False)
 			data = response.text
 			return data
@@ -73,12 +80,12 @@ def make_request_post(url):
 		dialog.notification("Registration reminder", reg_remind, xbmcgui.NOTIFICATION_INFO, 8000)
 		
 def get_menu():
-	addDir(3, '[B][COLOR orange]Free Movies[/COLOR][/B]', 'http://erosnow.com/v2/catalog/movies?content_type_id=1&'+language2+'free=true&start_index=0&max_result=20&cc=US', '')
+	addDir(3, '[B][COLOR orange]Free Movies[/COLOR][/B]', 'http://erosnow.com/v2/catalog/movies?content_type_id=1&'+language2+'free=true&start_index=0&max_result=20&', '')
 	addDir(1, '[B][COLOR orange]Latest Movies[/COLOR][/B]', '', '')
-	addDir(3, '[B][COLOR orange]ALL Movies[/COLOR][/B]','http://erosnow.com/v2/catalog/movies?content_type_id=1&'+language2+'type=movie&start_index=0&max_result=20&cc=US','')
+	addDir(3, '[B][COLOR orange]ALL Movies[/COLOR][/B]','http://erosnow.com/v2/catalog/movies?content_type_id=1&'+language2+'type=movie&start_index=0&max_result=20&','')
 	addDir(4, '[B][COLOR orange]By Genre[/COLOR][/B]', '', '')
 	addDir(2, '[B][COLOR orange]By Letters (A-Z)[/COLOR][/B]', '', '')
-	addDir(22, '[B][COLOR orange]Star Studded Collection[/COLOR][/B]', 'http://erosnow.com/v2/catalog/playlist/1045190?cc=US&start=0&count=20', '')
+	addDir(22, '[B][COLOR orange]Star Studded Collection[/COLOR][/B]', 'http://erosnow.com/v2/catalog/playlist/1045190?&start=0&count=20', '')
 	addDir(11, '[B][COLOR white]Search [COLOR orange]Movies[/COLOR][/COLOR][/B] [All Languages]', '', '')
 	addDir(91, '[COLOR grey]Add-on Settings[/COLOR]', '', '')
 
@@ -96,30 +103,38 @@ def get_search_movies():
 		else:
 			sys.exit()
 	
-	search_url = 'http://erosnow.com/search/movies?q='+str(search_term)+'&start=0&rows=20&cc=US'
+	search_url = 'http://erosnow.com/search/movies?q='+str(search_term)+'&start=0&rows=20&'
 		
 	get_movies(search_url)	
 
 def get_movies(url):
 	html2 = make_request(url)
+	if 'search/movies' in url:
+		html2 = html2.replace('\n','')
 	html = json.loads(html2)
 	total = html['total']
 	
 	for r in html['rows']:
 		name = r['title']
-		link = 'http://erosnow.com/catalog/movie/'+str(r['asset_id'])+'?cc=US'
+		link = 'http://erosnow.com/catalog/movie/'+str(r['asset_id'])+'?'
 		if r.get('images'):
-			img=r['images'].get('8')
+			if r['images'].get('8'):
+				img=r['images'].get('8')
+			else:
+				img=''
 			if r['images'].get('9'):
 				img2 = r['images']['9']
-			else:
+			elif r['images'].get('17'):
 				img2 = r['images']['17']
-		else:
-			img=''
-			img2=''
+			else:
+				img2 = ''
 		desc = r.get('short_description')
 		rating = r.get('rating')
-		duration = get_sec(r.get('duration'))
+		if r.get('duration'):
+			duration = get_sec(r.get('duration'))
+		else:
+			name = name+" - [COLOR red]Not released?[/COLOR]"
+			duration=''
 		addDir(21, name, link, img, img2, desc=desc, rating=rating,dur=duration, isplayable=True)
 	
 	if 'search/movies' in url:
@@ -143,31 +158,35 @@ def get_movies(url):
 def get_free_movies():
 	html2 = make_request(url)
 	html = json.loads(html2)
+	content_id=''
 	for r in html['content']:
 		if '1' in r['content_type_id']:
 			content_id = r['content_id']
 			name = r['title']
-	userurl = 'https://erosnow.com/secured/dologin'
-	req = make_request_post(userurl)
-	movieurl2 = 'http://erosnow.com/profiles/'+str(content_id)+'?platform=2&q=auto'
-	html3 = make_request(movieurl2)
-	html4 = json.loads(html3)
-	req2 = json.loads(req)
-	item2 = xbmcgui.ListItem(name)
-	if (str(req2['success']['plan']) == 'False'):
-		movie_link = html4['profiles']['ADAPTIVE_SD'][0]
+	if content_id:
+		userurl = 'https://erosnow.com/secured/dologin'
+		req = make_request_post(userurl)
+		movieurl2 = 'http://erosnow.com/profiles/'+str(content_id)+'?platform=2&q=auto'
+		html3 = make_request(movieurl2)
+		html4 = json.loads(html3)
+		req2 = json.loads(req)
+		item2 = xbmcgui.ListItem(name)
+		if (str(req2['success']['plan']) == 'False'):
+			movie_link = html4['profiles']['ADAPTIVE_SD'][0]
+		else:
+			movie_link = html4['profiles']['ADAPTIVE_ALL'][0]
+			subYes = Addon.getSetting('subType')
+			if (subYes=='true') and (html4.get('subtitles')):
+				closedcaption=[]
+				closedcaption.append(html4['subtitles']['eng']['url'])
+				subpath = convert_subtitles(closedcaption)
+				item2.setSubtitles([subpath])
+		
+		item2.setProperty('IsPlayable', 'true')
+		item2.setPath(movie_link['url'])
+		xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item2)
 	else:
-		movie_link = html4['profiles']['ADAPTIVE_ALL'][0]
-		subYes = Addon.getSetting('subType')
-		if (subYes=='true') and (html4.get('subtitles')):
-			closedcaption=[]
-			closedcaption.append(html4['subtitles']['eng']['url'])
-			subpath = convert_subtitles(closedcaption)
-			item2.setSubtitles([subpath])
-	
-	item2.setProperty('IsPlayable', 'true')
-	item2.setPath(movie_link['url'])
-	xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item2)
+		dialog.notification('Error', 'Movie may not be released yet.', xbmcgui.NOTIFICATION_INFO, 6000)
 
 def convert_subtitles(closedcaption):
 	# from pycaption import detect_format, SRTWriter
@@ -223,22 +242,22 @@ def smart_utf8(s):
     return smart_unicode(s).encode('utf-8')
 	
 def get_genre():
-	html = make_request('http://erosnow.com/genrelist?type=movie&cc=US')
+	html = make_request('http://erosnow.com/genrelist?type=movie&')
 	data = json.loads(html)
 	for single in data:
 		title = single['type']
-		link = 'http://erosnow.com/v2/catalog/movies?content_type_id=1&'+language2+'genre='+str(single['id'])+'&type=movie&start_index=0&max_result=20&cc=US'
-		# link = 'http://erosnow.com/catalog/movies?'+language2+'start_index=0&genre_type='+str(single['id'])+'&max_result='+perpage+'&cc=US'
+		link = 'http://erosnow.com/v2/catalog/movies?content_type_id=1&'+language2+'genre='+str(single['id'])+'&type=movie&start_index=0&max_result=20&'
+		# link = 'http://erosnow.com/catalog/movies?'+language2+'start_index=0&genre_type='+str(single['id'])+'&max_result='+perpage+'&'
 		addDir(3, title, link, '')
 		
 	setView('movies', 'movie-view')
 	
 def get_latest():
-	html = make_request('http://erosnow.com/playlist?page=&location=3&position=&cc=US&subset=0&p=&plid=1006864')
+	html = make_request('http://erosnow.com/playlist?page=&location=3&position=&&subset=0&p=&plid=1006864')
 	data = json.loads(html)
 	for result in data['playlist']:
 		title = result['asset']['title']
-		link = 'http://erosnow.com/catalog/movie/'+str(result['asset']['asset_id'])+'?cc=US'
+		link = 'http://erosnow.com/catalog/movie/'+str(result['asset']['asset_id'])+'?'
 		img = result['asset']['images']['8']
 		if '9' in result['content']['images']:
 			img2 = result['content']['images']['9']
@@ -253,10 +272,10 @@ def get_latest():
 		
 def get_letters():
 	azlist = map (chr, range(65,91))
-	addDir(3, '#', 'http://erosnow.com/catalog/movies?'+language2+'term=-&type=movie&start_index=0&max_result=20&cc=US', '')
+	addDir(3, '#', 'http://erosnow.com/catalog/movies?'+language2+'term=-&type=movie&start_index=0&max_result=20&', '')
 	for letter in azlist:
 		term = 'term='+letter.lower()+'&'
-		term = 'http://erosnow.com/v2/catalog/movies?content_type_id=1&'+language2+term+'start_index=0&max_result=20&cc=US'
+		term = 'http://erosnow.com/v2/catalog/movies?content_type_id=1&'+language2+term+'start_index=0&max_result=20&'
 		# print term.strip('\'')
 		addDir(3, letter, term, '')
     # xbmcplugin.endOfDirectory(int(sys.argv[1]))
@@ -266,7 +285,7 @@ def star_studded():
 	data2 = json.loads(html)
 	for r in data2['data']:
 		title = r['title'] +'      [COLOR orange]'+str(r['playlist_count'])+' movies[/COLOR]'
-		link = 'http://erosnow.com/v2/catalog/playlist/'+str(r['asset_id'])+'?cc=US&start=0&count=20'
+		link = 'http://erosnow.com/v2/catalog/playlist/'+str(r['asset_id'])+'?&start=0&count=20'
 		if '48' in r['images']:
 			img = r['images']['48']
 		elif '17' in r['images']:
@@ -279,7 +298,7 @@ def star_studded():
 	start=	int(url.partition('start=')[-1].rpartition('&')[0])
 	if(start+20 < int(data2['playlist_count'])):
 		start = start+20
-		addDir(22, ' >>> Next Page >>>', 'http://erosnow.com/v2/catalog/playlist/1045190?cc=US&start='+str(start)+'&count=20', '')
+		addDir(22, ' >>> Next Page >>>', 'http://erosnow.com/v2/catalog/playlist/1045190?&start='+str(start)+'&count=20', '')
 		
 	setView('movies', 'movie-view')
 
@@ -288,7 +307,7 @@ def get_star_movies():
 	data2 = json.loads(html)
 	for r in data2['data']:
 		title = r['title']
-		link = 'http://erosnow.com/catalog/movie/'+str(r['asset_id'])+'?cc=US'
+		link = 'http://erosnow.com/catalog/movie/'+str(r['asset_id'])+'?'
 		img=r['images']['8']
 		if '9' in r['images']:
 			img2 = r['images']['9']
@@ -327,7 +346,7 @@ def setView(content, viewType):
 def addDir(mode,name,url,image,image2="",desc="",rating="",dur="",isplayable=False):
     name = name.encode('utf-8', 'ignore')
     url = url.encode('utf-8', 'ignore')
-    desc = desc.encode('cp1252').decode('utf8')
+    desc = desc.encode('cp1252').decode('utf8', 'ignore')
 
     if 0==mode:
         link = url
