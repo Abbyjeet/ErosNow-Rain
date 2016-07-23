@@ -1,3 +1,6 @@
+[B][COLOR green]V 1.0.2 (Friday 23 July 2016)[/COLOR][/B]
+-- [COLOR yellow][B]Fixes[/COLOR]  - Fixed Videos[/B]
+
 [B][COLOR green]V 1.0.1 (Friday 26 February 2016)[/COLOR][/B]
 -- [COLOR yellow][B]Fixes[/COLOR]  - Fixed character encoding issues and inventory listing by user geo.[/B]
 

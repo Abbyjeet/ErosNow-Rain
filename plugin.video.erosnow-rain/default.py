@@ -87,6 +87,7 @@ def get_menu():
 	addDir(2, '[B][COLOR orange]By Letters (A-Z)[/COLOR][/B]', '', '')
 	addDir(22, '[B][COLOR orange]Star Studded Collection[/COLOR][/B]', 'http://erosnow.com/v2/catalog/playlist/1045190?&start=0&count=20', '')
 	addDir(11, '[B][COLOR white]Search [COLOR orange]Movies[/COLOR][/COLOR][/B] [All Languages]', '', '')
+	# addDir(31, 'TV shows', 'http://erosnow.com/v2/populartvshows?start=0&limit=20', '')
 	addDir(91, '[COLOR grey]Add-on Settings[/COLOR]', '', '')
 
 def get_search_movies():
@@ -159,7 +160,7 @@ def get_free_movies():
 	html2 = make_request(url)
 	html = json.loads(html2)
 	content_id=''
-	for r in html['content']:
+	for r in html['contents']:
 		if '1' in r['content_type_id']:
 			content_id = r['content_id']
 			name = r['title']
@@ -268,7 +269,7 @@ def get_latest():
 		duration = get_sec(result['content']['duration'])
 		addDir(21, title, link, img, img2, desc, rating,dur=duration, isplayable=True)
 		
-	setView('movies', 'movie-view')
+	setView('movies', 'movie-view')	
 		
 def get_letters():
 	azlist = map (chr, range(65,91))
@@ -355,6 +356,8 @@ def addDir(mode,name,url,image,image2="",desc="",rating="",dur="",isplayable=Fal
 
     ok=True
     item=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=image)
+    item.addStreamInfo('video', {'codec': 'h264'})
+    item.addStreamInfo('audio', {'codec': 'aac', 'language': 'en', 'channels': 2})
     item.setInfo( type="Video", infoLabels={ "Title": name, "Plot": desc, "Rating": rating, "Duration": dur } )
     item.setArt({'fanart': image2})
     if 'Settings' in name:
